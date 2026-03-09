@@ -1,0 +1,57 @@
+---
+
+```gitignore
+# =========================
+# .NET / Visual Studio
+# =========================
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# =========================
+# Build artifacts
+# =========================
+artifacts/
+TestResults/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Environment files
+# =========================
+appsettings.Development.json
+appsettings.Local.json
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+
+.env
+
+# =========================
+# Docker
+# =========================
+docker-data/
+**/docker-compose.override.yml
+
+# =========================
+# NuGet
+# =========================
+.nuget/
+packages/
+
+# =========================
+# Coverage
+# =========================
+coverage/
