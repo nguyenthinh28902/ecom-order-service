@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+// 1. Chỉ comment dòng quan trọng: Import thư viện thời gian chuẩn của Google
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Ecom.PaymentService.Grpc";
+package payment;
+
+service PaymentGrpc {
+  rpc ProcessPayment (PaymentGrpcRequest) returns (PaymentGrpcResponse);
+  rpc GetTransactionByOrderId (GetTransactionRequest) returns (TransactionGrpcResponse);
+  rpc GetTransactionByOrderIdManager (OrderTransactionGrpcRequest) returns (TransactionManagerGrpcResponse);
+}
+
+//Request cms load transaction
+message OrderTransactionGrpcRequest {
+  int32 order_id = 1;
+}
+
+//Request yêu cầu thanh toán
+message PaymentGrpcRequest {
+  int32 order_id = 1;
+  string order_code = 2;
+  double amount = 3;
+  string currency = 4;
+  string payment_method_code = 5;
+  string description = 6;
+}
+
+//reponse kết quả yêu cầu thanh toán
+message PaymentGrpcResponse {
+  bool is_success = 1;
+  string message = 2;
+  string approval_url = 3;
+  string order_code = 4;
+}
+
+//Request web load transaction by order id
+message GetTransactionRequest {
+  int32 order_id = 1;
+}
+
+//Response kết quả load transaction by order id cho web
+message TransactionGrpcResponse {
+  bool is_success = 1;
+  string message = 2;
+  int32 id = 3;
+  int32 order_id = 4;
+  string order_code = 5;
+  double amount = 6;
+  string currency = 7;
+  string payment_method_name = 8;
+  string external_transaction_id = 9;
+  string status_name = 10;
+}
+//reponse kết quả load transaction by order id cho cms
+message TransactionManagerGrpcResponse {
+  bool is_success = 1;
+  string message = 2;
+  int32 id = 3;
+  int32 order_id = 4;
+  string order_code = 5;
+  int32 payment_method_id = 6;
+  string payment_method_name = 7;
+  double amount = 8; 
+  string currency = 9;
+  string external_transaction_id = 10;
+  string payment_metadata = 11;
+  int32 status = 12; 
+  string status_name = 13;
+  repeated TransactionLogManagerGrpc transaction_log = 14; 
+  
+  google.protobuf.Timestamp created_at = 15; 
+  google.protobuf.Timestamp finished_at = 16; 
+}
+//Response log giao dịch cho cms
+message TransactionLogManagerGrpc {
+  int32 id = 1;
+  string log_content = 2;
+  google.protobuf.Timestamp created_at = 3; 
+}
+//reponse kết quả load transaction by order id cho cms

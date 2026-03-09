@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+option csharp_namespace = "Ecom.Shared.Grpc"; 
+
+package product;
+
+service ProductGrpc {
+  // API cũ: Lấy thông tin hiển thị cơ bản
+  rpc GetProductDisplayInfos (ProductRequest) returns (ProductResponse);
+
+  // API mới: Lấy chi tiết sản phẩm phục vụ Checkout (tính giá, check tồn kho)
+  rpc GetProductCheckoutDetails (ProductRequest) returns (ProductResponse);
+}
+
+// Cấu trúc Request giữ nguyên vì vẫn cần danh sách ProductId và VariantId [cite: 3, 4]
+message ProductRequest {
+  repeated ProductItem items = 1; 
+}
+
+message ProductItem {
+  int32 id = 1;
+  int32 variant_id = 2; 
+}
+
+message ProductInfo {
+  int32 id = 1;
+  int32 variant_id = 7;
+  string name = 3;
+  string variant_name = 2;
+  double price = 4;
+  string image_url = 5;
+  string currency_unit = 6;
+  string sku = 8;        // Bổ sung SKU để Order Service lưu vào OrderItem
+  bool is_available = 9; // Check xem sản phẩm còn kinh doanh/còn hàng không
+}
+
+message ProductResponse {
+  repeated ProductInfo products = 1;
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Ecom.OrderService.Api/Ecom.OrderService.Api.csproj" />
+  <Project Path="Ecom.OrderService.Application/Ecom.OrderService.Application.csproj" />
+  <Project Path="Ecom.OrderService.Core/Ecom.OrderService.Core.csproj" />
+  <Project Path="Ecom.OrderService.Infrastructure/Ecom.OrderService.Infrastructure.csproj" />
+</Solution>
