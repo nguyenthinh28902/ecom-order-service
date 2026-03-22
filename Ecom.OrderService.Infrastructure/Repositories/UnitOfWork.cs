@@ -1,79 +1,102 @@
 ﻿using Ecom.OrderService.Core.Abstractions.Persistence;
 using Ecom.OrderService.Infrastructure.DbContexts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Ecom.OrderService.Infrastructure.Repositories
 {
     public class UnitOfWork : IUnitOfWork
     {
-        private readonly EcomOrderDbContext dbContext;
-        private Dictionary<Type, object> _repositories = new Dictionary<Type, object>();
-        private IDbContextTransaction _transaction;
-        public UnitOfWork(EcomOrderDbContext context)
+        private readonly EcomOrderDbContext _dbContext;
+        private readonly Dictionary<Type, object> _repositories = new();
+        private IDbContextTransaction? _transaction;
+        private bool _disposed = false;
+        private readonly IServiceProvider _serviceProvider;
+        public UnitOfWork(EcomOrderDbContext context, IServiceProvider serviceProvider)
         {
-            dbContext = context;
+            _dbContext = context;
+            _serviceProvider = serviceProvider;
         }
+
 
         public IRepository<T> Repository<T>() where T : class
         {
-            IRepository<T> repository = null;
-            if (_repositories.ContainsKey(typeof(T)))
+            var type = typeof(T);
+            if (!_repositories.ContainsKey(type))
             {
-                repository = _repositories[typeof(T)] as IRepository<T>;
+                var repo = _serviceProvider.GetService<IRepository<T>>();
+                if(repo == null)
+                {
+                    repo = new Repository<T>(_dbContext);
+                }
+                _repositories[type] = repo;
             }
-            else
-            {
-                repository = new Repository<T>(dbContext);
-                _repositories.Add(typeof(T), repository);
-            }
-
-            return (Repository<T>)repository;
+            return (IRepository<T>)_repositories[type];
         }
 
-        public async Task SaveChangesAsync()
+        public async Task<int> SaveChangesAsync()
         {
-            await dbContext.SaveChangesAsync();
+            return await _dbContext.SaveChangesAsync();
         }
 
-        public void SaveChanges()
-        {
-            dbContext.SaveChanges();
-        }
-
-        // Khoi tao Transaction
         public async Task BeginTransactionAsync()
         {
-            _transaction = await dbContext.Database.BeginTransactionAsync();
+            _transaction = await _dbContext.Database.BeginTransactionAsync();
         }
 
-        // Xac nhan thay doi va ket thuc Transaction
         public async Task CommitAsync()
         {
             try
             {
-                await dbContext.SaveChangesAsync();
-                if (_transaction != null) await _transaction.CommitAsync();
+                await _dbContext.SaveChangesAsync();
+                if (_transaction != null)
+                {
+                    await _transaction.CommitAsync();
+                }
             }
             catch
             {
                 await RollbackAsync();
-                throw;
+                throw; 
             }
             finally
             {
-                _transaction?.Dispose();
-                _transaction = null;
+                if (_transaction != null)
+                {
+                    await _transaction.DisposeAsync();
+                    _transaction = null;
+                }
             }
         }
 
-        // Hoan tac neu co loi
         public async Task RollbackAsync()
         {
             if (_transaction != null)
             {
                 await _transaction.RollbackAsync();
-                _transaction.Dispose();
+                await _transaction.DisposeAsync();
                 _transaction = null;
+            }
+        }
+
+       
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _transaction?.Dispose();
+                    _dbContext.Dispose();
+                }
+                _disposed = true;
             }
         }
     }

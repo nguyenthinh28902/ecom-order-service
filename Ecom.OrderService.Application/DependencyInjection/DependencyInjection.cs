@@ -1,4 +1,5 @@
-﻿using Ecom.OrderService.Application.Interface.Auth;
+﻿using Ecom.OrderService.Application.AutoMappings;
+using Ecom.OrderService.Application.Interface.Auth;
 using Ecom.OrderService.Application.Service.Auth;
 using Ecom.OrderService.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +14,11 @@ namespace Ecom.OrderService.Application.DependencyInjection
         {
             services.AddDependencyInjectionInfrastructure(configuration);
             services.AddStackExchangeRedis(configuration);
-            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+            services.AddAutoMapper(cfg =>
+            {
+                cfg.AddProfile<ApplicatinoOrderCmsProfile>();
+                cfg.AddProfile<ApplicatinoOrderWebProfile>();
+            });
             services.AddScoped<ICurrentUserService, CurrentUserService>();
             services.AddScoped<ICurrentCustomerService, CurrentCustomerService>();
             services.AddScoped<IBaseService, BaseService>();
