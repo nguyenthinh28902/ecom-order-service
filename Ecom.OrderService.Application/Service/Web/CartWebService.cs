@@ -2,9 +2,11 @@
 using Ecom.OrderService.Application.Interface.Web;
 using Ecom.OrderService.Core.Abstractions.Persistence;
 using Ecom.OrderService.Core.Entities;
+using Ecom.OrderService.Core.Exceptions;
 using Ecom.OrderService.Core.Models;
 using Ecom.OrderService.Core.Models.Web.Dtos.Cart;
 using Ecom.Shared.Grpc;
+using Grpc.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -36,7 +38,7 @@ namespace Ecom.OrderService.Application.Service.Web
             {
                 // 1. Lấy hoặc khởi tạo giỏ hàng cho khách hàng
                 var cart = await _unitOfWork.Repository<Cart>()
-                    .GetAll(x => x.CustomerId == customerId)
+                    .Entities.Where(x => x.CustomerId == customerId)
                     .Include(x => x.CartItems)
                     .FirstOrDefaultAsync();
 
@@ -103,8 +105,6 @@ namespace Ecom.OrderService.Application.Service.Web
                 return Result<bool>.Failure("Có lỗi xảy ra khi thêm vào giỏ hàng");
             }
         }
-
-
         public async Task<Result<CartDto>> GetCartAsync()
         {
             // 1. Lấy UserId của khách hàng hiện tại
@@ -112,7 +112,7 @@ namespace Ecom.OrderService.Application.Service.Web
 
             // 2. Lấy giỏ hàng từ Database nội bộ của Order Service
             var cart = await _unitOfWork.Repository<Cart>()
-                .GetAll(x => x.CustomerId == customerId)
+                .Entities.Where(x => x.CustomerId == customerId)
                 .Include(x => x.CartItems)
                 .FirstOrDefaultAsync();
 
@@ -140,8 +140,7 @@ namespace Ecom.OrderService.Application.Service.Web
                 _logger.LogInformation("gRPC Request: Sending {Count} product IDs to ProductService", itemsForGrpc.Count());
 
                 var grpcResponse = await _productGrpcClient.GetProductDisplayInfosAsync(grpcRequest);
-
-              
+                              
                 _logger.LogInformation("gRPC Response: Received {Count} product details from ProductService", grpcResponse.Products.Count);
 
                 // 4. Map dữ liệu trả về vào DTO giỏ hàng
@@ -171,6 +170,12 @@ namespace Ecom.OrderService.Application.Service.Web
 
                 return Result<CartDto>.Success(cartDto, "Thành công.");
             }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+            {
+                
+                _logger.LogWarning("Không tìm thấy thông tin sản phẩm từ gRPC: {Detail}", ex.Status.Detail);
+                throw new NotFoundException("Sản phẩm không còn tồn tại trong hệ thống ný ơi!");
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi kết nối gRPC đến Product Service");
@@ -184,7 +189,7 @@ namespace Ecom.OrderService.Application.Service.Web
 
             // 2. Tìm giỏ hàng của User này
             var cart = await _unitOfWork.Repository<Cart>()
-                .GetAll(x => x.CustomerId == userId)
+                .Entities.Where(x => x.CustomerId == userId)
                 .Include(x => x.CartItems)
                 .FirstOrDefaultAsync();
 

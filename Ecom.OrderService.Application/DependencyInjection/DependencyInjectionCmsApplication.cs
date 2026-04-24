@@ -1,4 +1,5 @@
 ﻿using Ecom.OrderService.Application.Interface.Cms;
+using Ecom.OrderService.Application.Service.Cms;
 using Ecom.OrderService.Application.Service.CMS;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -12,6 +13,7 @@ namespace Ecom.OrderService.Application.DependencyInjection
         public static IServiceCollection AddCmsApplication(this IServiceCollection services)
         {
             services.AddScoped<IOrderManagerService, OrderManagerService>();
+            services.AddScoped<ICartManagerService, CartManagerService>();
             return services;
         }
     }

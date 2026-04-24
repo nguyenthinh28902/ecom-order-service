@@ -55,7 +55,7 @@ namespace Ecom.OrderService.Application.Service.CMS
                 var workplaceType = _currentUserService.WorkplaceType;
                 // 2. Chỉ comment dòng quan trọng: Query kèm Include và ProjectTo thẳng sang bản rút gọn (Summary)
                 var query = _unitOfWork.Repository<Order>()
-                    .GetAll();
+                    .Entities.AsNoTracking();
                 if (workplaceType != WorkplaceType.Office.ToString())
                 {
                     query = query.Where(o => o.WorkplaceId == workerId);
@@ -88,7 +88,7 @@ namespace Ecom.OrderService.Application.Service.CMS
             var workplaceType = _currentUserService.WorkplaceType;
             // 2. Chỉ comment dòng quan trọng: Query kèm Include và ProjectTo thẳng sang bản rút gọn (Summary)
             var query = _unitOfWork.Repository<Order>()
-                .GetAll(x => x.Id == request.Id);
+                .Entities.AsNoTracking().Where(x => x.Id == request.Id);
             if (workplaceType != WorkplaceType.Office.ToString())
             {
                 query = query.Where(o => o.WorkplaceId == workerId);

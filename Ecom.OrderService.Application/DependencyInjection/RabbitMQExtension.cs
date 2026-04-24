@@ -1,5 +1,6 @@
 ﻿using Ecom.OrderService.Application.Interface;
 using Ecom.OrderService.Application.Service;
+using Ecom.OrderService.Application.Service.Cms.Consumer;
 using Ecom.OrderService.Core.Models.Auth;
 using Ecom.OrderService.Core.Models.Connection;
 using MassTransit;
@@ -22,6 +23,7 @@ namespace Ecom.OrderService.Application.DependencyInjection
 
             services.AddMassTransit(x =>
             {
+                x.AddConsumers(typeof(ClearCartOnOrderCompletedConsumer).Assembly);
                 x.UsingRabbitMq((context, cfg) =>
                 {
                     // 1. Chỉ comment dòng quan trọng: Cấu hình Host kèm Port (đổi sang ushort)
@@ -30,7 +32,9 @@ namespace Ecom.OrderService.Application.DependencyInjection
                         h.Username(rabbitSettings.UserName);
                         h.Password(rabbitSettings.Password);
                     });
+                    cfg.ConfigureEndpoints(context);
                 });
+
             });
             return services;
         }

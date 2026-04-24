@@ -8,12 +8,15 @@ namespace Ecom.OrderService.Infrastructure.Repositories
 {
     public class Repository<T> : IRepository<T> where T : class
     {
-        private EcomOrderDbContext _context;
-        public Repository(EcomOrderDbContext _context)
+        private readonly EcomOrderDbContext _context;
+
+        public Repository(EcomOrderDbContext context)
         {
-            this._context = _context;
+            _context = context;
         }
 
+        public IQueryable<T> Entities => _context.Set<T>();
+        public IQueryable<T> EntitiesNoTracking => _context.Set<T>().AsNoTracking();
         /// <summary>
         /// add 1 item
         /// </summary>
@@ -70,122 +73,23 @@ namespace Ecom.OrderService.Infrastructure.Repositories
         }
 
         /// <summary>
-        /// get 1 item theo id
-        /// </summary>
-        /// <param name="Id"></param>
-        /// <returns></returns>
-        public async Task<T> FindAsync(object Id)
-        {
-            var entity = await _context.Set<T>().FindAsync(Id);
-            if (entity == null) return null;
-            return entity;
-        }
-
-        /// <summary>
-        /// get 1 item theo điều kiện lambda 
-        /// </summary>
-        /// <param name="predicate">lambda</param>
-        /// <returns></returns>
-        public async Task<T> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
-        {
-            var entity = await _context.Set<T>().FirstOrDefaultAsync(predicate);
-            if (entity == null) return null;
-            return entity;
-        }
-
-        /// <summary>
-        /// get 1 item theo điều kiện lambda  kèm AsNoTracking
-        /// </summary>
-        /// <param name="predicate">lambda</param>
-        /// <returns></returns>
-        public async Task<T> FirstOrDefaultAsNoTrackingAsync(Expression<Func<T, bool>> predicate)
-        {
-            var entity = await _context.Set<T>().AsNoTracking().FirstOrDefaultAsync(predicate);
-            if (entity == null) return null;
-            return entity;
-        }
-        /// <summary>
-        /// Get all danh sach 
-        /// trả về là kiểu dữ liệu danh sách
-        /// </summary>
-        /// <returns></returns>
-        public async Task<IEnumerable<T>> ToListAsync()
-        {
-            return await _context.Set<T>().AsNoTracking().ToListAsync();
-        }
-        /// <summary>
         /// đếm số lượng theo diều kiện lambda
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public async Task<int> CountAsync(Expression<Func<T, bool>> predicate = null)
-        {
-            return await _context.Set<T>().AsNoTracking().Where(predicate).CountAsync();
-        }
-        /// <summary>
-        /// get danh sách có điều kiện lambda
-        /// AsNoTracking
-        /// </summary>
-        /// <param name="predicate"></param>
-        /// <returns></returns>
-        public async Task<IEnumerable<T>> ToListAsync(Expression<Func<T, bool>> predicate)
-        {
-            return await _context.Set<T>().AsNoTracking().Where(predicate).ToListAsync();
-        }
-        /// <summary>
-        /// get danh sách có includes
-        /// </summary>
-        /// <param name="includes"></param>
-        /// <returns></returns>
-        public IQueryable<T> ListIncludes(params Expression<Func<T, object>>[] includes)
-        {
-            var query = _context.Set<T>().AsQueryable().AsNoTracking();
-            return includes.Aggregate(query, (q, w) => q.Include(w));
-        }
-        /// <summary>
-        /// get danh sách có điều kiện lambda, có includes, có orderby
-        /// </summary>
-        /// <param name="predicate">điều kiện</param>
-        /// <param name="orderBy"></param>
-        /// <param name="include"></param>
-        /// <param name="disableTracking"></param>
-        /// <param name="ignoreQueryFilters"></param>
-        /// <returns></returns>
-        public IQueryable<T> GetAll(
-            Expression<Func<T, bool>> predicate = null,
-            Func<IQueryable<T>, IOrderedQueryable<T>> orderBy = null,
-            Func<IQueryable<T>, IIncludableQueryable<T, object>> include = null, bool disableTracking = true, bool ignoreQueryFilters = false)
+        public async Task<int> CountAsync(Expression<Func<T, bool>>? predicate = null)
         {
             var query = _context.Set<T>().AsQueryable();
 
-            if (disableTracking)
-            {
-                query = query.AsNoTracking();
-            }          
-
+            // Chỉ thực hiện Where nếu predicate có giá trị
             if (predicate != null)
             {
-                query = query.Where(predicate);
-            }
-            if (include != null)
-            {
-                query = include(query);
+                query = query.Where(predicate).AsNoTracking();
             }
 
-            if (ignoreQueryFilters)
-            {
-                query = query.IgnoreQueryFilters();
-            }
-
-            if (orderBy != null)
-            {
-                return orderBy(query);
-            }
-            else
-            {
-                return query;
-            }
+            return await query.CountAsync();
         }
+
 
         public void Detached(T entity)
         {
