@@ -24,11 +24,13 @@ namespace Ecom.OrderService.Application.DependencyInjection
 
             // Đăng ký gRPC Client
             services.AddGrpcClient<ProductGrpc.ProductGrpcClient>(o => o.Address = new Uri(productUrl))
-         .AddCommonCallCredentials(configuration);
+             .AddCommonCallCredentials(configuration)
+             .AddInterceptor<DeadlineInterceptor>();
 
             // Đăng ký Payment Service Client
             services.AddGrpcClient<PaymentGrpc.PaymentGrpcClient>(o => o.Address = new Uri(paymentUrl))
-                    .AddCommonCallCredentials(configuration);
+                    .AddCommonCallCredentials(configuration)
+                    .AddInterceptor<DeadlineInterceptor>();
             return services;
         }
     }
