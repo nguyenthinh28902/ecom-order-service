@@ -23,7 +23,7 @@ namespace Ecom.OrderService.Application.Service.Web
         {
             _logger = logger;
             _currentCustomerService = currentCustomerService;
-            _unitOfWork = unitOfWork;   
+            _unitOfWork = unitOfWork;
             _productGrpcClient = productGrpcClient;
         }
 
@@ -52,7 +52,7 @@ namespace Ecom.OrderService.Application.Service.Web
                     };
                     await _unitOfWork.Repository<Cart>().AddAsync(cart);
                     await _unitOfWork.SaveChangesAsync();
-                    if(cart.Id == 0) return Result<bool>.Failure("Có lỗi xảy ra khi thêm vào giỏ hàng");
+                    if (cart.Id == 0) return Result<bool>.Failure("Có lỗi xảy ra khi thêm vào giỏ hàng");
                     // Lưu để có ID giỏ hàng trước khi thêm item (tùy thuộc vào thiết kế DB)
                     // Hoặc để EF Core tự xử lý quan hệ nếu CartId là FK
                 }
@@ -107,6 +107,7 @@ namespace Ecom.OrderService.Application.Service.Web
         }
         public async Task<Result<CartDto>> GetCartAsync()
         {
+            _logger.LogInformation($"{nameof(GetCartAsync)} start");
             // 1. Lấy UserId của khách hàng hiện tại
             var customerId = _currentCustomerService.Id;
 
@@ -135,33 +136,68 @@ namespace Ecom.OrderService.Application.Service.Web
             // 4. Gọi gRPC sang Product Service để lấy thông tin hiển thị (Name, Price, Image)
             // var productResponse = await _productGrpcClient.GetProductDisplayInfosAsync(grpcRequest);
 
+            // 1. Tách biệt việc gọi gRPC để kiểm soát lỗi kết nối / lỗi mạng
+            ProductResponse grpcResponse;
             try
             {
                 _logger.LogInformation("gRPC Request: Sending {Count} product IDs to ProductService", itemsForGrpc.Count());
 
-                var grpcResponse = await _productGrpcClient.GetProductDisplayInfosAsync(grpcRequest);
-                              
-                _logger.LogInformation("gRPC Response: Received {Count} product details from ProductService", grpcResponse.Products.Count);
+               grpcResponse = await _productGrpcClient.GetProductDisplayInfosAsync(grpcRequest);
 
-                // 4. Map dữ liệu trả về vào DTO giỏ hàng
+                // Kiểm tra nếu response hoặc danh sách products bị null hệ thống
+                if (grpcResponse?.Products == null)
+                {
+                    _logger.LogWarning("gRPC Response thành công nhưng danh sách Products bị null");
+                    return Result<CartDto>.Failure("Dữ liệu sản phẩm trả về không hợp lệ");
+                }
+
+                _logger.LogInformation("gRPC Response: Received {Count} product details from ProductService", grpcResponse.Products.Count);
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+            {
+                _logger.LogWarning("Không tìm thấy thông tin sản phẩm từ gRPC: {Detail}", ex.Status.Detail);
+                throw new NotFoundException("Sản phẩm không còn tồn tại trong hệ thống ný ơi!");
+            }
+            catch (RpcException ex)
+            {
+                // Bắt các lỗi gRPC khác (mất kết nối, timeout, unavailable...)
+                _logger.LogError(ex, "Lỗi kết nối gRPC đến Product Service. Status: {Status}", ex.Status);
+                return Result<CartDto>.Failure("Lỗi kết nối hệ thống khi lấy thông tin sản phẩm");
+            }
+
+            // 2. Logic xử lý và Map dữ liệu (Nếu lỗi ở đây sẽ là lỗi Logic/Data chứ không phải lỗi gRPC)
+            try
+            {
+                if (cart.CartItems == null)
+                {
+                    return Result<CartDto>.Success(new CartDto { Id = cart.Id, Items = new List<CartItemDto>() }, "Giỏ hàng trống.");
+                }
+
                 var cartDto = new CartDto
                 {
                     Id = cart.Id,
                     Items = cart.CartItems.Select(item =>
                     {
-                        // Tìm thông tin sản phẩm tương ứng từ kết quả gRPC trả về
                         var pInfo = grpcResponse.Products.FirstOrDefault(p => p.Id == item.ProductId);
-                        var ProductName = pInfo?.Name ?? "Sản phẩm không xác định";
-                        var VariantName = pInfo?.VariantName ?? "Phiên bản không xác định";
+                        var productName = pInfo?.Name ?? "Sản phẩm không xác định";
+                        var variantName = pInfo?.VariantName ?? "Phiên bản không xác định";
+
+                        // An toàn hơn khi ép kiểu từ double/float (của gRPC) sang decimal
+                        decimal unitPrice = 0;
+                        if (pInfo != null)
+                        {
+                            unitPrice = Convert.ToDecimal(pInfo.Price);
+                        }
+
                         return new CartItemDto
                         {
                             ProductId = item.ProductId,
                             VariantId = item.VariantId,
                             Quantity = item.Quantity ?? 0,
-                            VariantName = VariantName,
-                            ProductName = ProductName,
-                            ProductDisplayName = $"{ProductName} - {VariantName}",
-                            UnitPrice = (decimal)(pInfo?.Price ?? 0),
+                            VariantName = variantName,
+                            ProductName = productName,
+                            ProductDisplayName = $"{productName} - {variantName}",
+                            UnitPrice = unitPrice,
                             MainImage = pInfo?.ImageUrl ?? string.Empty,
                             CurrencyUnit = pInfo?.CurrencyUnit ?? "VNĐ",
                         };
@@ -170,20 +206,20 @@ namespace Ecom.OrderService.Application.Service.Web
 
                 return Result<CartDto>.Success(cartDto, "Thành công.");
             }
-            catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
-            {
-                
-                _logger.LogWarning("Không tìm thấy thông tin sản phẩm từ gRPC: {Detail}", ex.Status.Detail);
-                throw new NotFoundException("Sản phẩm không còn tồn tại trong hệ thống ný ơi!");
-            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Lỗi kết nối gRPC đến Product Service");
-                return Result<CartDto>.Failure("Lỗi hệ thống khi lấy thông tin sản phẩm");
+                // Log chính xác lỗi xuất hiện khi xử lý mapping dữ liệu
+                _logger.LogError(ex, "Lỗi logic khi map dữ liệu Cart sang CartDto");
+                return Result<CartDto>.Failure("Lỗi xử lý dữ liệu giỏ hàng");
+            }
+            finally
+            {
+                _logger.LogInformation($"{nameof(GetCartAsync)} end");
             }
         }
         public async Task<Result<bool>> CleanCartAsync()
         {
+            _logger.LogInformation($"{nameof(GetCartAsync)} start");
             // 1. Lấy UserId từ thông tin đăng nhập (Gateway chuyển xuống)
             var userId = _currentCustomerService.Id;
 
@@ -214,6 +250,10 @@ namespace Ecom.OrderService.Application.Service.Web
             {
                 _logger.LogError(ex, "Lỗi khi xóa giỏ hàng của User {UserId}", userId);
                 return Result<bool>.Failure("Lỗi hệ thống khi làm sạch giỏ hàng");
+            }
+            finally
+            {
+                _logger.LogInformation($"{nameof(GetCartAsync)} end");
             }
         }
     }

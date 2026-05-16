@@ -1,5 +1,6 @@
 ﻿using Ecom.OrderService.Application.Interface.Auth;
 using Ecom.OrderService.Application.Service.Auth;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -15,6 +16,20 @@ namespace Ecom.OrderService.Application.Common.Extension
         {
             return builder.AddCallCredentials(async (context, metadata, serviceProvider) =>
             {
+                // Lấy HttpContextAccessor để truy cập Header của request hiện tại
+                var httpContextAccessor = serviceProvider.GetRequiredService<IHttpContextAccessor>();
+                var httpContext = httpContextAccessor.HttpContext;
+
+                // 1. Chỉ comment dòng quan trọng: Truyền Correlation ID xuống Service qua gRPC
+                if (httpContext != null)
+                {
+                    var correlationId = httpContext.Request.Headers["X-Correlation-ID"].ToString();
+                    if (!string.IsNullOrEmpty(correlationId))
+                    {
+                        metadata.Add("x-correlation-id", correlationId);
+                    }
+                }
+
                 var currentCustomer = serviceProvider.GetRequiredService<ICurrentCustomerService>();
                 var currentUserService = serviceProvider.GetRequiredService<ICurrentUserService>();
 
