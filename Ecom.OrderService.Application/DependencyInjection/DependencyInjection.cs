@@ -1,9 +1,12 @@
 ﻿using Ecom.OrderService.Application.AutoMappings;
+using Ecom.OrderService.Application.Common.Extension;
 using Ecom.OrderService.Application.Interface.Auth;
 using Ecom.OrderService.Application.Service.Auth;
 using Ecom.OrderService.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Ecom.OrderService.Application.Service.Dev;
 
 namespace Ecom.OrderService.Application.DependencyInjection
 {
@@ -19,8 +22,18 @@ namespace Ecom.OrderService.Application.DependencyInjection
                 cfg.AddProfile<ApplicatinoOrderCmsProfile>();
                 cfg.AddProfile<ApplicatinoOrderWebProfile>();
             });
-            services.AddScoped<ICurrentUserService, CurrentUserService>();
-            services.AddScoped<ICurrentCustomerService, CurrentCustomerService>();
+            services.AddTransient<DeadlineInterceptor>();
+            if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == Environments.Development)
+            {
+                services.AddScoped<ICurrentUserService, CurrentUserServiceDev>();
+                services.AddScoped<ICurrentCustomerService, CurrentCustomerServiceDev>();
+            }
+            else
+            {
+                services.AddScoped<ICurrentUserService, CurrentUserService>();
+                services.AddScoped<ICurrentCustomerService, CurrentCustomerService>();
+            }
+                
             services.AddScoped<IBaseService, BaseService>();
             services.AddRabbitMQExtension(configuration);
             services.AddCmsApplication();
